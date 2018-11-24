@@ -55,6 +55,10 @@ int Semaforo::Signal(){
     s.sem_flg = 0;
 
     int st = semop(id, &s, 1);
+    if(-1 == st){
+      perror("Semaforo::Signal");
+      exit(0);
+    }
     return st;
 }
 
@@ -64,6 +68,10 @@ int Semaforo::Wait(){
     s.sem_op = -1;
     s.sem_flg = 0;
     int st = semop(id, &s, 1);
+    if(-1 == st){
+      perror("Semaforo::Wait");
+      exit(0);
+    }
     return st;
 }
 

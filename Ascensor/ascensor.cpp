@@ -18,7 +18,7 @@ using namespace std;
 
 void Ascensor();
 void Persona(int i, int j);
-void Subir(int piso);
+void Subir(int piso, int cant);
 
 
 Semaforo * sA;
@@ -28,8 +28,8 @@ Semaforo * sP;
 struct Compartido
 {
   int pisoActual, pEnAscensor, pEspEntrar;
-  int pSubiendo[pisos];
-  int pBajando[pisos];
+  int pSubiendo[pisos+1];
+  int pBajando[pisos+1];
 };
 
 typedef struct Compartido varCompartidas;
@@ -57,25 +57,30 @@ int main(){
   }
   
   sA = new Semaforo(0);
-  sP = new Semaforo(0);
+  sP = new Semaforo(1);
   int iter = 0;
-  while(iter++ <= 10){
+  while(iter++ < 10){
     if(!fork()){
-      int pSube = 1+rand()%(17-1);//random entre 1 y 16
-      srand(time(NULL)); //nueva semilla
-      int pBaja = 1+rand()%(17-1);//random entre 1 y 16
-      cout << "Piso Sube: " << pSube << " , piso Baja: " << pBaja << endl;
+      int pSube = -1;
+      int pBaja = -1;
+      pSube = 1+rand()%(17-1);//random entre 1 y 16
+      srand(time(NULL));
+      pBaja = 1+rand()%(17-1);//random entre 1 y 16
+      //cout << "Piso Sube: " << pSube << " , piso Baja: " << pBaja << endl;
       Persona(pSube, pBaja);
       Ascensor();
     }
-    iter++;
+    //iter++;
   }
-
+  
   //printf( "Destruyendo los recursos de memoria compartida\n");
   shmdt( comp );
   shmctl( id, IPC_RMID, NULL );
+  //_exit(0);
+  //sA->~Semaforo();
+  //sP->~Semaforo();
 
-  return 0;
+  //return 0;
 }
 
 void Ascensor(){
@@ -84,41 +89,46 @@ void Ascensor(){
     sP->Signal();
     sA->Wait();
   } //else{
-    //while(comp->pEnAscensor > 0){
+    //while(comp->pEnAscensor > 0){ //cambiar while por método para ver si hay más 
       if(direccion){ //sube
-        Subir(comp->pisoActual);
-        for(int i = comp->pisoActual; i<pisos; i++){
+        if(comp->pSubiendo[comp->pisoActual>0]){
+          Subir(comp->pisoActual, comp->pSubiendo[comp->pisoActual]);
+        }
+        for(int i = comp->pisoActual; i<=pisos; i++){
           if(comp->pBajando[i] > 0){
             comp->pEnAscensor -= comp->pBajando[i];
             comp->pBajando[i] = 0;
             if(comp->pEnAscensor == 0){
-              sP->Signal();
+              //sP->Signal();
               sA->Wait();
             }
           }
           if(comp->pSubiendo[i] > 0){
-            Subir(i);
+            Subir(i,  comp->pSubiendo[i]);
           }
         }
         direccion = !direccion;
       } else{ //baja
-        Subir(comp->pisoActual);
-        for(int i = comp->pisoActual; i<= 0; i--){
+        if(comp->pSubiendo[comp->pisoActual>0]){
+          Subir(comp->pisoActual, comp->pSubiendo[comp->pisoActual]);
+        }
+        for(int i = comp->pisoActual; i< 0; i--){
           if(comp->pBajando[i] > 0){
             comp->pEnAscensor -= comp->pBajando[i];
             comp->pBajando[i] = 0;
             if(comp->pEnAscensor == 0){
-              sP->Signal();
+              //sP->Signal();
               sA->Wait();
             }
           }
           if(comp->pSubiendo[i] > 0){
-            Subir(i);
+            Subir(i,  comp->pSubiendo[i]);
           }
         }
         cout << "Num Personas en ascensor: " << comp->pEnAscensor << endl;
         direccion = !direccion; //cambia de dirección
       }
+      //cout << "Ascensor pEspEntrar: " << comp->pEspEntrar << endl;
     //}
    sP->Signal();
    sA->Wait(); 
@@ -126,16 +136,20 @@ void Ascensor(){
 }
 
 void Persona(int i, int j){
+  //cout << "Persona" << endl;
   comp->pEspEntrar++;
   comp->pSubiendo[i]++; //piso donde sube
-  sP->Wait(); //espera al ascensor
   comp->pBajando[j]++; //piso donde baja
-  cout << "Persona sube en el piso: " << i << " y baja en el " << j << endl;
   sA->Signal();
-  sP->Wait();
+  sP->Wait(); //espera al ascensor  
+  //sA->Signal();
+  //sP->Signal();
 }
 
-void Subir(int piso){
+void Subir(int piso, int cant){
+  cout << cant << " persona(s) subiendo en el piso: " << piso <<  endl;
+  sA->Wait();
+  sP->Wait();
   comp->pEnAscensor +=comp->pSubiendo[piso];
   if(comp->pSubiendo[piso] > 0){
     if(comp->pEnAscensor > capacidad){ //deben subir algunos pasajeros
@@ -146,6 +160,7 @@ void Subir(int piso){
       comp->pEspEntrar -= comp->pSubiendo[piso];
       comp->pSubiendo[piso] = 0;
     } 
+    sA->Signal();
     sP->Signal();
   }
 }
