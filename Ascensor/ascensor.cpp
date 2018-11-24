@@ -81,7 +81,7 @@ int main(){
   //printf( "Destruyendo los recursos de memoria compartida\n");
   shmdt( comp );
   shmctl( id, IPC_RMID, NULL );
-  _exit(0);
+  exit(0);
 
   //return 0;
 }
