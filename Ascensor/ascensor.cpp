@@ -81,7 +81,7 @@ int main(){
   //printf( "Destruyendo los recursos de memoria compartida\n");
   shmdt( comp );
   shmctl( id, IPC_RMID, NULL );
-  exit(0);
+  _exit(0);
 
   //return 0;
 }
@@ -97,6 +97,8 @@ void Ascensor(){
           Subir(comp->pisoActual, comp->pSubiendo[comp->pisoActual]);
         }
         for(int i = comp->pisoActual; i<=pisos; i++){
+          int k = 10;
+          int n = wait(&k);
           if(comp->pBajando[i] > 0){
             cout << comp->pBajando[i] << " personas bajando en piso " << i << endl;
             comp->pEnAscensor -= comp->pBajando[i];
@@ -117,7 +119,7 @@ void Ascensor(){
         }
         for(int i = comp->pisoActual; i< 0; i--){
           if(comp->pBajando[i] > 0){
-            cout << comp->pBajando[i] << " personas bajando en piso " << i << endl;
+            cout << comp->pBajando[i] << " Persona(s) bajando en piso " << i << endl;
             comp->pEnAscensor -= comp->pBajando[i];
             comp->pBajando[i] = 0;
             if(comp->pEnAscensor == 0){
