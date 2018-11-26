@@ -101,10 +101,11 @@ void Ascensor(){
       if(direccion){ //sube
         if(comp->pSubiendo[comp->pisoActual] > 0){
           Subir(comp->pisoActual, comp->pSubiendo[comp->pisoActual]);
-          sA->Wait(); //espera a que las personas suban
           sP->Signal();
+          sA->Wait(); //espera a que las personas suban
         }
         for(int i = comp->pisoActual; i<=pisos; i++){
+          comp->pisoActual = i;
           if(comp->pBajando[i] > 0){
             cout << comp->pBajando[i] << " personas bajando en piso " << i << endl;
             comp->pEnAscensor -= comp->pBajando[i];
@@ -129,6 +130,7 @@ void Ascensor(){
           sP->Signal();
         }
         for(int i = comp->pisoActual; i< 0; i--){
+          comp->pisoActual = i;
           if(comp->pBajando[i] > 0){
             cout << comp->pBajando[i] << " Persona(s) bajando en piso " << i << endl;
             comp->pEnAscensor -= comp->pBajando[i];
@@ -162,6 +164,7 @@ void Persona(int i, int j){
   sA->Signal(); //llama al ascensor
   comp->pSubiendo[i]++; //piso donde sube
   sP->Wait(); //espera al ascensor  
+  sA->Signal();
   comp->pBajando[j]++; //piso donde baja
 
   //sA->Signal();
