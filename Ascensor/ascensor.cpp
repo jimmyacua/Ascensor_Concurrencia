@@ -11,6 +11,9 @@
 #include <unistd.h>
 #include <wait.h>
 
+#include <chrono>
+#include <thread>
+
 using namespace std;
 
 #define pisos 16
@@ -37,6 +40,7 @@ varCompartidas * comp;
 
 int id = 0;
 
+
 int main(){
 
   id = shmget(0xB50060,sizeof(varCompartidas), 0600 | IPC_CREAT);
@@ -58,8 +62,7 @@ int main(){
   }
   
   sA = new Semaforo(0);
-  sP = new Semaforo(1);
-
+  sP = new Semaforo(0);
   
   //srand(time(NULL));
   int pSube = -1;
@@ -67,23 +70,26 @@ int main(){
   if(!fork()){
     int iter = 0;
     while(iter++ < 10){
-      do{
-        pSube = 1+rand()%(17-1);//random entre 1 y 16
-        pBaja = 1+rand()%(17-1);//random entre 1 y 16
-      } while(pSube == pBaja);
-      
-      cout << "Piso Sube: " << pSube << " , piso Baja: " << pBaja << endl;
-      Persona(pSube, pBaja);
+      for(int i=0; i< 10; i++){
+        do{
+          pSube = 1+rand()%(17-1);//random entre 1 y 16
+          pBaja = 1+rand()%(17-1);//random entre 1 y 16
+        } while(pSube == pBaja);
+        
+        //cout << "Piso Sube: " << pSube << " , piso Baja: " << pBaja << endl;
+        Persona(pSube, pBaja);
+      }
       Ascensor();
     }
   }
   
+  
   //printf( "Destruyendo los recursos de memoria compartida\n");
   shmdt( comp );
   shmctl( id, IPC_RMID, NULL );
-  _exit(0);
+  
 
-  //return 0;
+  return 0;
 }
 
 void Ascensor(){
@@ -95,27 +101,32 @@ void Ascensor(){
       if(direccion){ //sube
         if(comp->pSubiendo[comp->pisoActual] > 0){
           Subir(comp->pisoActual, comp->pSubiendo[comp->pisoActual]);
+          sA->Wait(); //espera a que las personas suban
+          sP->Signal();
         }
         for(int i = comp->pisoActual; i<=pisos; i++){
-          int k = 10;
-          int n = wait(&k);
           if(comp->pBajando[i] > 0){
             cout << comp->pBajando[i] << " personas bajando en piso " << i << endl;
             comp->pEnAscensor -= comp->pBajando[i];
             comp->pBajando[i] = 0;
             if(comp->pEnAscensor == 0){
-              //sP->Signal();
+              sP->Signal();
               sA->Wait();
             }
           }
           if(comp->pSubiendo[i] > 0){
-            Subir(i,  comp->pSubiendo[i]);
+            Subir(i, comp->pSubiendo[i]);
+            sA->Wait(); //espera a que las personas suban
+            sP->Signal();
           }
+          //std::this_thread::sleep_for(std::chrono::milliseconds(200));
         }
         direccion = !direccion;
       } else{ //baja
         if(comp->pSubiendo[comp->pisoActual] > 0){
           Subir(comp->pisoActual, comp->pSubiendo[comp->pisoActual]);
+          sA->Wait(); //espera a que las personas suban
+          sP->Signal();
         }
         for(int i = comp->pisoActual; i< 0; i--){
           if(comp->pBajando[i] > 0){
@@ -123,21 +134,25 @@ void Ascensor(){
             comp->pEnAscensor -= comp->pBajando[i];
             comp->pBajando[i] = 0;
             if(comp->pEnAscensor == 0){
-              //sP->Signal();
+              sP->Signal();
               sA->Wait();
             }
           }
           if(comp->pSubiendo[i] > 0){
-            Subir(i,  comp->pSubiendo[i]);
+            Subir(i, comp->pSubiendo[i]);
+            sA->Wait(); //espera a que las personas suban
+            sP->Signal();
           }
+          //std::this_thread::sleep_for(std::chrono::milliseconds(200));
         }
         //cout << "Num Personas en ascensor: " << comp->pEnAscensor << endl;
         direccion = !direccion; //cambia de dirección
       }
       //cout << "Ascensor pEspEntrar: " << comp->pEspEntrar << endl;
     //}
-   sP->Signal();
-   sA->Wait(); 
+   //sP->Signal();
+   //sA->Wait(); 
+
   //}
 }
 
@@ -145,17 +160,17 @@ void Persona(int i, int j){
   //cout << "Persona" << endl;
   comp->pEspEntrar++;
   sA->Signal(); //llama al ascensor
-  sP->Wait(); //espera al ascensor  
   comp->pSubiendo[i]++; //piso donde sube
+  sP->Wait(); //espera al ascensor  
   comp->pBajando[j]++; //piso donde baja
-  
+
   //sA->Signal();
   //sP->Signal();
 }
 
 void Subir(int piso, int cant){
   cout << cant << " persona(s) subiendo en el piso: " << piso <<  endl;
-  sA->Wait(); //el ascensor espera a que suban las personas
+  //sA->Wait(); //el ascensor espera a que suban las personas
   comp->pEnAscensor +=comp->pSubiendo[piso];
   if(comp->pSubiendo[piso] > 0){
     if(comp->pEnAscensor > capacidad){ //deben subir algunos pasajeros
@@ -167,6 +182,5 @@ void Subir(int piso, int cant){
       comp->pSubiendo[piso] = 0;
     } 
     sA->Signal();
-    sP->Signal();
   }
 }
